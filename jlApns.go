@@ -114,6 +114,7 @@ func (a *APNSession) RecvRespnose() {
 // ----------
 
 func (a *APNSession) Close() {
+	a.state = StateDisconnect
 	if a.conn != nil {
 		a.conn.Close()
 		a.conn = nil
