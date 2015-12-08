@@ -46,6 +46,9 @@ type APNSession struct {
 	state int
 }
 
+func (a *APNSession) State() int {
+	return a.state
+}
 func NewAPNSession(gateway, certificateFile, keyFile string, responseChan chan *FailInfo) (a *APNSession) {
 	a = new(APNSession)
 	a.Gateway = gateway
