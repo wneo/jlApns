@@ -39,15 +39,27 @@ type APNSession struct {
 	CertificateBase64 string
 	KeyBase64         string
 
-	conn         net.Conn
-	tlsConn      *tls.Conn
-	ResponseChan chan *FailInfo
+	conn            net.Conn
+	tlsConn         *tls.Conn
+	ResponseChan    chan *FailInfo
+	StateChangeChan chan int
 
 	state int
 }
 
 func (a *APNSession) State() int {
 	return a.state
+}
+func (a *APNSession) setState(newState int) {
+	if a.state != newState {
+		a.state = newState
+		if len(a.StateChangeChan) > 8 {
+			for i := 0; i < 7; i++ {
+				<-a.StateChangeChan // 倾倒
+			}
+		}
+		a.StateChangeChan <- newState
+	}
 }
 func NewAPNSession(gateway, certificateFile, keyFile string, responseChan chan *FailInfo) (a *APNSession) {
 	a = new(APNSession)
@@ -56,6 +68,7 @@ func NewAPNSession(gateway, certificateFile, keyFile string, responseChan chan *
 	a.KeyFile = keyFile
 	a.state = StateDisconnect
 	a.ResponseChan = responseChan
+	a.StateChangeChan = make(chan int, 10)
 	return
 }
 
@@ -114,7 +127,7 @@ func (a *APNSession) RecvRespnose() {
 // ----------
 
 func (a *APNSession) Close() {
-	a.state = StateDisconnect
+	a.setState(StateDisconnect)
 	if a.conn != nil {
 		a.conn.Close()
 		a.conn = nil
@@ -133,12 +146,12 @@ func (a *APNSession) Connect() (err error) {
 		}
 		return errors.New("connecting")
 	}
-	a.state = StateConncting
+	a.setState(StateConncting)
 	defer func() {
 		if err == nil {
-			a.state = StateConncted
+			a.setState(StateConncted)
 		} else {
-			a.state = StateDisconnect
+			a.setState(StateDisconnect)
 		}
 	}()
 
